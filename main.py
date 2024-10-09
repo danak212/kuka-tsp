@@ -1,239 +1,191 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
-import random
-
 from itertools import product, permutations
+from numpy.typing import ArrayLike
+from shapely.geometry import LineString
+
+from dataclasses import dataclass
 
 class Map:
-    def __init__(self, **params):
-
-        self.size = params['map_size']
-        self.precision = params['precision']
-
-        self.lines = self.generate_lines(params['num_lines'], params['num_connected'], params['line_length'])
-
+    def __init__(self, map_size, num_lines, num_connected, line_length, precision):
+        self.size = map_size
+        self.precision = precision
+        self.lines = self.generate_lines(num_lines, num_connected, line_length)
         self.walls = None
-    ### Point, line UTILS
 
+    ### Utility Functions
     def set_walls(self, walls):
         self.walls = walls
-        
-    def length(self, p1, p2):
-        return np.linalg.norm(np.array(p1) - np.array(p2))
-    
-    def random(self, min, max):
-        x = np.random.uniform(min, max)
-        return np.round(x / self.precision) * self.precision
-    
-    def random_point(self):
-        max_x, max_y = self.size
-        x, y = self.random(0, max_x), self.random(0, max_y)
-        return (x, y)
-    
-    def generate_lines(self, num_lines, num_connected, line_length):
-        assert num_lines > num_connected*2
+
+    # Calculates disance between two points
+    def dist(self, p1 : tuple, p2 : tuple):
+        return np.linalg.norm(np.subtract(p1, p2))
+
+    # Return a random value in [min_val; max_val] with a certain float precision, set by map
+    def random(self, min_val : float, max_val : float) -> float:
+        return np.round(np.random.uniform(min_val, max_val) / self.precision) * self.precision
+
+    # Return a random pont as a tuple (x, y)
+    def random_point(self) -> tuple:
+        return (self.random(0, self.size[0]), self.random(0, self.size[1]))
+
+    ### Generate work lines, a certain number of connected lines, and within a given length range 
+    def generate_lines(self, num_lines : int, num_connected : int, line_length : tuple) -> ArrayLike:
+
+        assert num_lines > num_connected * 2, "Number of lines must be greater than twice the connected lines."
         min_length, max_length = line_length
 
         lines = []
+
         # Generate connected lines
-        for i in range(num_connected):
-            # Generate first line randomly
+        for _ in range(num_connected):
             p1, p2 = self.random_point(), self.random_point()
 
-            # Make sure line length has correct length
-            while self.length(p1, p2) > max_length or self.length(p1, p2) < min_length:
+            while not (min_length <= self.dist(p1, p2) <= max_length):
                 p2 = self.random_point()
             lines.append((p1, p2))
-            
-            # Generate a line connected with the previous
-            rand_index = np.random.randint(0, 2)
-            shared_point = (p1, p2)[rand_index]
+
+            # Choose which end of the first line will be shared by second line
+            shared_point = p1 if np.random.randint(0, 2) == 0 else p2
             second_point = self.random_point()
-            
-            # Make sure line length is correct
-            while self.length(shared_point, second_point) > max_length or self.length(shared_point, second_point) < min_length:
+
+            while not (min_length <= self.dist(shared_point, second_point) <= max_length):
                 second_point = self.random_point()
             lines.append((shared_point, second_point))
             num_lines -= 2
-        
-        # Generate standard lines
-        for i in range(num_lines):
-            p1 = self.random_point()
-            p2 = self.random_point()
-            
-            dist = np.inf
-            while dist > max_length or dist < min_length:
+
+        # Generate remaining lines
+        for _ in range(num_lines):
+            p1, p2 = self.random_point(), self.random_point()
+
+            while not (min_length <= self.dist(p1, p2) <= max_length):
                 p2 = self.random_point()
-                dist = self.length(p1, p2)
             lines.append((p1, p2))
 
-        lines = np.array(lines, dtype=float)
-        return  np.reshape(lines, (-1, 2, 2)) # Update lines
+        return lines
 
-    def plot(self, ax):
-
+    def plot(self, ax) -> None:
         for i, line in enumerate(self.lines):
-            if i == 0:   
-                ax.plot(line[:, 0], line[:, 1], 'black', linewidth=1.5, label="working_path")
-            else:
-                ax.plot(line[:, 0], line[:, 1], 'black', linewidth=1.5)
-
-            ax.scatter(line[:, 0], line[:, 1], c='black')
+            p1, p2 = line
+            x1, y1 = p1
+            x2, y2 = p2
+            ax.plot([x1, x2], [y1, y2], 'black', linewidth=1.5, label="working_path" if i == 0 else "")
+            ax.scatter([x1, x2], [y1, y2], c='black')
 
         if self.walls is not None:
             for wall in self.walls:
-                ax.plot(wall[:, 0], wall[:, 1], 'red', linewidth=3, label="obstacle")
+                p1, p2 = wall
+                x1, y1 = p1
+                x2, y2 = p2
+                ax.plot([x1, x2], [y1, y2], 'red', linewidth=3, label="obstacle")
 
+# Each node represents a line, with start and end point.
+@dataclass
 class Node:
-    def __init__(self, id, start, end):
-        self.id = id
-        self.start = start
-        self.end = end
+    id: str
+    start: np.ndarray
+    end: np.ndarray
 
-    def get_start(self):
-        x, y = self.start
-        return (x.ravel(), y.ravel())
+    def cost(self, other):
+        return np.linalg.norm(np.subtract(self.end, other.start))
     
-    def get_end(self):
-        x, y = self.end
-        return (x.ravel(), y.ravel())
     
-    def __repr__(self):
-        return f"Node({self.id}: ({self.start}, {self.end}))"
-    
+# Cost of edge is calculated as distance between first line's end point and second line's start point.
+@dataclass
 class Edge:
-    def __init__(self, node1, node2):
-        self.node1 = node1
-        self.node2 = node2
-        self.cost = self.calculate_cost()
+    node1: Node
+    node2: Node 
 
-    def calculate_cost(self):
-        cost = np.linalg.norm(np.array(self.node1.get_end()) - np.array(self.node2.get_start()))
-        return cost
+    def cost(self):
+        return self.node1.cost(self.node2)
 
 class Graph:
     def __init__(self):
-        self.nodes= {}
-        self.edges = []
+        self.nodes = {}
+        self.edges = {}
 
     def add_node(self, id, start, end):
         if id not in self.nodes:
-            node = Node(id, start, end)
-            self.nodes[id] = node
+            self.nodes[id] = Node(id, start, end)
 
     def add_edge(self, id1, id2):
         if id1 in self.nodes and id2 in self.nodes:
-            node1 = self.nodes[id1]
-            node2 = self.nodes[id2]
-            edge = Edge(node1, node2)
-            self.edges.append(edge)
-    
-    def get_node(self, id):
-        return self.nodes[id]
-    
+            edge = Edge(self.nodes[id1], self.nodes[id2])
+            self.edges[id1+id2] = edge
+
+    # Given two nodes, returns the cost of traverse. if no connection, returns float('inf')
+    def get_cost(self, id1, id2):
+        edge = self.edges.get(id1 + id2)
+        return edge.cost() if edge else float('inf')
+        
     def plot(self, ax, plot_nodes=True, plot_all_edges=False):
-        # Plot nodes
         if plot_nodes:
             for key, node in self.nodes.items():
-                x, y = node.get_start()
+                x, y = node.start
                 ax.scatter(x, y, facecolors='none', edgecolors='red', s=200, linewidths=2, marker='o')
                 ax.text(x + 0.04, y + 0.01, key, fontsize=12, color="black")
-        
-        # Plot edges
-        if plot_all_edges:
-            for edge in self.edges:
-                x1, y1 = edge.node1.get_end()
-                x2, y2 = edge.node2.get_start()
-                ax.plot([x1, x2], [y1, y2], 'k-')
 
-                mid_x = x1 + x2 / 2
-                mid_y = y1 + y2 / 2
+        if plot_all_edges:
+            for key, edge in self.edges.items():
+                x1, y1 = edge.node1.end
+                x2, y2 = edge.node2.start
+                ax.plot([x1, x2], [y1, y2], 'k-')
+                mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
                 ax.text(mid_x, mid_y, f'{edge.cost:.2f}', fontsize=10, color='red')
 
     def plot_path(self, ax, path):
-            for i in range(len(path) - 1):
-                node1 = self.nodes[path[i]]
-                node2 = self.nodes[path[i+1]]
-
-                x1, y1 = node1.get_end()
-                x2, y2 = node2.get_start()
-                ax.plot([x1, x2], [y1, y2], 'g--')
-
-    def get_cost(self, path):
-        total_cost = 0
         for i in range(len(path) - 1):
-            node1 = self.nodes[path[i]]
-            node2 = self.nodes[path[i+1]]
-            total_cost += np.linalg.norm(np.array(node1.get_end()) - np.array(node2.get_start()))
-        return total_cost
+            node1, node2 = self.nodes[path[i]], self.nodes[path[i + 1]]
+            x1, y1 = node1.end
+            x2, y2 = node2.start
+            ax.plot([x1, x2], [y1, y2], 'g--')
+
+    # Returns a cost of a given path, where path is a list of nodes to visit
+    def get_path_cost(self, path):
+        return sum(self.get_cost(path[i], path[i + 1]) for i in range(len(path) - 1))
 
     def tsp_brute_force(self, start_id, end_id, pairs):
         all_nodes = set(self.nodes.keys()) - {start_id, end_id}
 
-        # Generate permuations while selecitng only one from each pair
-        reduced_nodes = []
-        for pair in pairs:
-            pair_nodes = list(pair)
-            reduced_nodes.append(pair_nodes)
-        
+        # Make sure to only travel through each line once.
+        # This is a problem, because we add each line twice, for each direction in which it can be traversed.
+        reduced_nodes = [list(pair) for pair in pairs]
         combinations = product(*reduced_nodes)
 
-        min_cost = float('inf')
-        best_path = None
+        min_cost, best_path = float('inf'), None
         for comb in combinations:
-            comb = list(comb)
             for perm in permutations(comb):
                 path = [start_id] + list(perm) + [end_id]
-                cost = self.get_cost(path)
+                cost = self.get_path_cost(path)
                 if cost < min_cost:
-                    min_cost = cost
-                    best_path = path
+                    min_cost, best_path = cost, path
         return best_path, min_cost
 
-    
-def plot(grid_size, map, graph, path):
+def plot(grid_size, work_map, graph, path):
     fig, ax = plt.subplots(figsize=(11.69, 8.27))
     fig.patch.set_facecolor('white')
-    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)  # Adjust the subplot parameters
+    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
-    # Style
-    max_x, max_y = grid_size
-    ax.set_xlim((0, max_x))
-    ax.set_ylim((0, max_y))
-
-    ax.grid()   
-    ax.xaxis.set_minor_locator(AutoMinorLocator(10))
-    ax.yaxis.set_minor_locator(AutoMinorLocator(10))  
+    ax.set_xlim((0, grid_size[0]))
+    ax.set_ylim((0, grid_size[1]))
     ax.grid(which='both', linestyle='--', linewidth=0.5)
-    ax.grid(which='minor', linestyle=':', linewidth='0.5')
+    ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(10))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(10))
     ax.set_aspect('auto')
-    plt.style.use('seaborn-v0_8-paper')  # Choose a style suitable for printing
+    plt.style.use('seaborn-v0_8-paper')
 
-
-    # Labels
     plt.xlabel("x (m)", fontsize='large')
     plt.ylabel("y (m)", fontsize='large')
     plt.title("TSP Problem on Kuka", fontsize='large')
 
-    plt.tight_layout()
-    plt.legend(fontsize='large')
-    
-
-    # Plot map
-    map.plot(ax)
-
-    # Plot graph
+    work_map.plot(ax)
     graph.plot(ax)
     graph.plot_path(ax, path)
 
-    plt.savefig('a4_print.png', dpi=300, bbox_inches='tight')  # Save as PNG with high resolution
+    plt.savefig('a4_print.png', dpi=300, bbox_inches='tight')
     plt.show()
-
-# TSP
-
-
-
 
 def main():
     np.random.seed(42)
@@ -245,38 +197,45 @@ def main():
         'precision': 0.1,
     }
 
-    work_map = Map(**params) 
-    work_map.set_walls(np.reshape([[0, 1], [0.5, 1]], (-1, 2, 2)))
-
-    lines = work_map.lines
+    # Generate map
+    work_map = Map(**params)
+    work_map.set_walls([[(0, 1), (1, 1)]])
     graph = Graph()
 
-    # Add start and end nodes:
-    graph.add_node(f'start', np.zeros((2, 1)), np.zeros((2, 1)))
-    graph.add_node(f'end', np.zeros((2, 1)), np.zeros((2, 1)))
+    # Start and end is at (0, 0)
+    graph.add_node('start', (0, 0), (0, 0)) 
+    graph.add_node('end', (0, 0), (0, 0))
 
-    # Add nodes
-    for i, line in enumerate(lines):
-        # Add node for each line in both directions
+    for i, line in enumerate(work_map.lines):
         p1, p2 = line
         graph.add_node(f'p_{i}a', p1, p2)
         graph.add_node(f'p_{i}b', p2, p1)
 
-    # Add edges
-    for id1, node1 in graph.nodes.items():
-        for id2, node2 in graph.nodes.items():
-            if id1 == id2:
-                continue
-            graph.add_edge(id1, id2)
-        
-    
-    # TSP
-    print("Starting TSP")
-    pairs = [(f'p_{i}a', f'p_{i}b') for i, _ in enumerate(lines)]
-    best_path, min_cost = graph.tsp_brute_force('start', 'end', pairs)
-    print(best_path, min_cost)
+    for id1 in graph.nodes:
+        for id2 in graph.nodes:
+            if id1 == id2: continue 
 
+            node1, node2 = graph.nodes[id1], graph.nodes[id2]
+            edge_line = LineString([node1.end, node2.start])
+            
+            tests = []
+            for wall in work_map.walls:
+                p1, p2 = wall
+                wall_line = LineString([p1, p2])
+                tests.append(edge_line.intersects(wall_line))
+
+            if np.any(tests):
+                continue
+
+            graph.add_edge(id1, id2)
+
+    # SOlve TSP
+    pairs = [(f'p_{i}a', f'p_{i}b') for i in range(len(work_map.lines))]
+    best_path, min_cost = graph.tsp_brute_force('start', 'end', pairs)
+
+    print(best_path, min_cost)
     plot(work_map.size, work_map, graph, best_path)
+
 
 if __name__ == "__main__":
     main()

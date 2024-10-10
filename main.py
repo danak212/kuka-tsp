@@ -135,11 +135,12 @@ class Graph:
                 ax.text(mid_x, mid_y, f'{edge.cost:.2f}', fontsize=10, color='red')
 
     def plot_path(self, ax, path):
-        for i in range(len(path) - 1):
-            node1, node2 = self.nodes[path[i]], self.nodes[path[i + 1]]
-            x1, y1 = node1.end
-            x2, y2 = node2.start
-            ax.plot([x1, x2], [y1, y2], 'g--')
+        if path:
+            for i in range(len(path) - 1):
+                node1, node2 = self.nodes[path[i]], self.nodes[path[i + 1]]
+                x1, y1 = node1.end
+                x2, y2 = node2.start
+                ax.plot([x1, x2], [y1, y2], 'g--')
 
     # Returns a cost of a given path, where path is a list of nodes to visit
     def get_path_cost(self, path):
@@ -167,8 +168,8 @@ def plot(grid_size, work_map, graph, path):
     fig.patch.set_facecolor('white')
     plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
-    ax.set_xlim((0, grid_size[0]))
-    ax.set_ylim((0, grid_size[1]))
+    ax.set_xlim((0., grid_size[0]))
+    ax.set_ylim((0., grid_size[1]))
     ax.grid(which='both', linestyle='--', linewidth=0.5)
     ax.grid(which='minor', linestyle=':', linewidth=0.5)
     ax.xaxis.set_minor_locator(AutoMinorLocator(10))
@@ -188,7 +189,7 @@ def plot(grid_size, work_map, graph, path):
     plt.show()
 
 def main():
-    np.random.seed(42)
+    np.random.seed(70)
     params = {
         'map_size': [4, 2],
         'num_lines': 6,
@@ -199,7 +200,7 @@ def main():
 
     # Generate map
     work_map = Map(**params)
-    work_map.set_walls([[(0, 1), (1, 1)]])
+    work_map.set_walls([[(0., 1.2), (1.0, 1.2)]])
     graph = Graph()
 
     # Start and end is at (0, 0)

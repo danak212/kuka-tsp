@@ -163,7 +163,11 @@ class Graph:
 
 
 def plot(grid_size, work_map, graph, path):
-    fig, ax = plt.subplots(figsize=(11.69, 8.27))
+    # Konwersja z mm na cale (1 cal = 25.4 mm)
+    fig_width = 297 / 25.4
+    fig_height = 210 / 25.4
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     fig.patch.set_facecolor('white')
     plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
@@ -176,8 +180,9 @@ def plot(grid_size, work_map, graph, path):
     ax.set_aspect('auto')
     plt.style.use('seaborn-v0_8-paper')
 
-    plt.xlabel("x (m)", fontsize='large')
-    plt.ylabel("y (m)", fontsize='large')
+    # Zmienione etykiety osi
+    plt.xlabel("297 mm", fontsize='large')
+    plt.ylabel("210 mm", fontsize='large')
     plt.title("Movement problem on Kuka", fontsize='large')
 
     work_map.plot(ax)

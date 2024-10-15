@@ -4,8 +4,8 @@ from matplotlib.ticker import AutoMinorLocator
 from itertools import product, permutations
 from numpy.typing import ArrayLike
 from shapely.geometry import LineString
-
 from dataclasses import dataclass
+
 
 class Map:
     def __init__(self, map_size, num_lines, num_connected, line_length, precision):
@@ -14,7 +14,7 @@ class Map:
         self.lines = self.generate_lines(num_lines, num_connected, line_length)
         self.walls = None
 
-    ### Utility Functions
+    # Utility Functions
     def set_walls(self, walls):
         self.walls = walls
 
@@ -28,9 +28,9 @@ class Map:
 
     # Return a random pont as a tuple (x, y)
     def random_point(self) -> tuple:
-        return (self.random(0, self.size[0]), self.random(0, self.size[1]))
+        return self.random(0, self.size[0]), self.random(0, self.size[1])
 
-    ### Generate work lines, a certain number of connected lines, and within a given length range 
+    # Generate work lines, a certain number of connected lines, and within a given length range
     def generate_lines(self, num_lines : int, num_connected : int, line_length : tuple) -> ArrayLike:
 
         assert num_lines > num_connected * 2, "Number of lines must be greater than twice the connected lines."
@@ -80,6 +80,7 @@ class Map:
                 x2, y2 = p2
                 ax.plot([x1, x2], [y1, y2], 'red', linewidth=3, label="obstacle")
 
+
 # Each node represents a line, with start and end point.
 @dataclass
 class Node:
@@ -99,6 +100,7 @@ class Edge:
 
     def cost(self):
         return self.node1.cost(self.node2)
+
 
 class Graph:
     def __init__(self):
@@ -163,6 +165,7 @@ class Graph:
                     min_cost, best_path = cost, path
         return best_path, min_cost
 
+
 def plot(grid_size, work_map, graph, path):
     fig, ax = plt.subplots(figsize=(11.69, 8.27))
     fig.patch.set_facecolor('white')
@@ -187,6 +190,7 @@ def plot(grid_size, work_map, graph, path):
 
     plt.savefig('a4_print.png', dpi=300, bbox_inches='tight')
     plt.show()
+
 
 def main():
     np.random.seed(70)
@@ -230,7 +234,7 @@ def main():
 
             graph.add_edge(id1, id2)
 
-    # SOlve TSP
+    # Solve TSP
     pairs = [(f'p_{i}a', f'p_{i}b') for i in range(len(work_map.lines))]
     best_path, min_cost = graph.tsp_brute_force('start', 'end', pairs)
 

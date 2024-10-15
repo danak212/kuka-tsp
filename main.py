@@ -27,6 +27,10 @@ for i, (p1, p2) in enumerate(points):
     plt.text(p1[0], p1[1], f'{i+1}a', fontsize=12, color='red', ha='right')
     plt.text(p2[0], p2[1], f'{i+1}b', fontsize=12, color='red', ha='right')
 
+    # MOŻLIWOŚĆ DODANIA WSPÓŁRZĘDNYCH PUNKTÓW
+    # plt.text(p1[0], p1[1], f'{i+1}a ({p1[0]:.1f}, {p1[1]:.1f})', fontsize=12, color='red', ha='right')
+    # plt.text(p2[0], p2[1], f'{i+1}b ({p2[0]:.1f}, {p2[1]:.1f})', fontsize=12, color='red', ha='right')
+
 # Rysowanie połączeń między odcinkami (przerywane linie)
 for i in range(len(points) - 1):
     p2_prev = points[i][1]  # Koniec poprzedniego odcinka

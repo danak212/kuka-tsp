@@ -4,19 +4,18 @@ import matplotlib.pyplot as plt
 # Ustawienie stałego seeda dla powtarzalności wyników
 np.random.seed(42)
 
-# Nowa lokalizacja przeszkody (bliżej odcinków 2 i 3)
-obstacle_x = [100, 140]  # x współrzędne
-obstacle_y = [120, 120]  # y współrzędne (stałe, aby przeszkoda była linią poziomą)
+# Lokalizacja przeszkody (nad punktem 2b, pod punktem 3b)
+obstacle_x = [0, 105]  # x współrzędne (przeszkoda idzie aż do lewej ściany)
+obstacle_y = [300, 215]  # y współrzędne, aby znajdowała się między 2b a 3b
 
 # Liczba segmentów do narysowania
 num_segments = 5  # Możemy mieć maksymalnie 5 odcinków
 
 # Generowanie punktów w taki sposób, by unikały przeszkody
-# Ograniczamy generowanie punktów do obszaru powyżej przeszkody
 points = []
 for i in range(num_segments):
-    x1, y1 = np.random.uniform(90, 160), np.random.uniform(150, 250)  # Punkt początkowy
-    x2, y2 = x1 + np.random.uniform(-30, 30), y1 + np.random.uniform(-30, 30)  # Punkt końcowy
+    x1, y1 = np.random.uniform(90, 160), np.random.uniform(160, 250)  # Punkt początkowy
+    x2, y2 = x1 + np.random.uniform(-40, 40), y1 + np.random.uniform(-55, 55)  # Punkt końcowy, większy rozrzut
     points.append(((x1, y1), (x2, y2)))
 
 # Tworzenie wykresu
@@ -40,7 +39,7 @@ plt.plot(obstacle_x, obstacle_y, 'r-', linewidth=4, label='Przeszkoda')
 # Oznaczenia osi
 plt.xlabel('x (mm)')
 plt.ylabel('y (mm)')
-plt.title('Trasa TSP z przeszkodą')
+plt.title('Problem rysowania odcinków z przeszkodą')
 
 # Ustawienie zakresu osi
 plt.xlim(0, 200)
